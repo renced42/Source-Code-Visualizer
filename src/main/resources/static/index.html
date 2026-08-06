@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="hu">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Source Graph Explorer</title>
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="stylesheet" href="/css/app.css?v=3.9">
+</head>
+<body>
+<header class="app-header">
+  <div class="brand">
+    <h1>Source Graph Explorer</h1>
+    <p>Teljes alkalmazási folyamatok a frontendtől a repositoryig</p>
+  </div>
+  <div class="header-metrics" aria-label="Gráf összesítés">
+    <span><strong id="nodeCount">0</strong> csomópont</span>
+    <span><strong id="edgeCount">0</strong> kapcsolat</span>
+    <span><strong id="visibleCount">0</strong> látható</span>
+  </div>
+</header>
+<main>
+  <section class="toolbar panel">
+    <label class="upload">
+      <span>Projekt ZIP</span>
+      <input id="projectFile" type="file" accept=".zip,application/zip">
+    </label>
+    <button id="analyzeButton" type="button">Projekt elemzése</button>
+    <label>
+      <span>Keresés</span>
+      <input id="searchInput" type="search" placeholder="Fájl, osztály, selector, endpoint…">
+    </label>
+
+  </section>
+
+  <section id="status" class="status" aria-live="polite">Tölts fel egy Java webalkalmazás forrását tartalmazó ZIP-et.</section>
+
+
+
+  <section class="view-switcher panel" aria-label="Megjelenítési mód">
+    <button id="graphViewButton" type="button" class="view-tab active" aria-pressed="true">Gráfnézet</button>
+    <button id="flowViewButton" type="button" class="view-tab" aria-pressed="false">Funkcionális útvonal</button>
+    <button id="chatViewButton" type="button" class="view-tab" aria-pressed="false">Helyi AI Chat</button>
+  </section>
+
+  <section id="chatView" class="chat-view panel" hidden>
+    <header class="chat-header">
+      <div>
+        <span class="flow-kicker">Teljesen helyi asszisztens</span>
+        <h2>Projektkérdések az Ollamával</h2>
+        <p>A kérdés, a gráfkontextus és a forráskódrészletek kizárólag a helyi Ollama szolgáltatáshoz kerülnek.</p>
+      </div>
+      <div class="chat-settings">
+        <label>
+          <span>Helyi modell</span>
+          <select id="chatModelSelect" aria-label="Helyi Ollama modell"><option value="">Kapcsolódás…</option></select>
+        </label>
+        <button id="refreshModelsButton" type="button" class="secondary">Modellek frissítése</button>
+        <button id="buildRagIndexButton" type="button" class="secondary">RAG index felépítése</button>
+        <button id="cancelRagIndexButton" type="button" class="secondary danger" hidden>RAG index készítés leállítása</button>
+        <button id="clearChatButton" type="button" class="secondary">Beszélgetés törlése</button>
+        <button id="exportChatButton" type="button" class="secondary">Markdown export</button>
+      </div>
+    </header>
+    <div id="ollamaStatus" class="ollama-status" aria-live="polite">Ollama kapcsolat ellenőrzése…</div>
+    <div id="ragIndexStatus" class="ollama-status" aria-live="polite">Vektorindex: még nincs felépítve.</div>
+    <div class="chat-context-bar">
+      <span id="chatContextLabel">Kontextus: teljes elemzett projekt</span>
+      <div class="chat-context-options">
+        <label class="check"><input id="chatUseSelection" type="checkbox" checked> Kijelölt gráfelem előnyben részesítése</label>
+        <button id="openCommunicationSidebarButton" type="button" class="secondary">Háttérkommunikáció</button>
+      </div>
+    </div>
+    <div id="chatMessages" class="chat-messages" aria-live="polite">
+      <article class="chat-message assistant">
+        <div class="chat-avatar">AI</div>
+        <div class="chat-bubble"><p>Elemezz egy projektet, majd kérdezz rá egy funkcióra, metódusra, API-ra vagy teljes végrehajtási útvonalra.</p></div>
+      </article>
+    </div>
+    <form id="chatForm" class="chat-composer">
+      <label for="chatQuestion">Kérdés az elemzett projektről</label>
+      <textarea id="chatQuestion" rows="4" maxlength="8000" placeholder="Például: Hogyan jut el a felhasználói művelet a controllertől a repositoryig?"></textarea>
+      <div class="chat-composer-actions">
+        <span id="chatHint">Ctrl + Enter: küldés</span>
+        <div class="chat-submit-actions"><button id="stopChatButton" type="button" class="secondary danger" hidden>Válasz leállítása</button><button id="sendChatButton" type="submit">Kérdés elküldése</button></div>
+      </div>
+    </form>
+  </section>
+
+  <aside id="communicationSidebar" class="communication-sidebar" hidden aria-labelledby="communicationSidebarTitle" aria-modal="true" role="dialog">
+    <div id="communicationSidebarBackdrop" class="communication-sidebar-backdrop"></div>
+    <section class="communication-sidebar-panel">
+      <header class="communication-sidebar-header">
+        <div>
+          <span class="flow-kicker">Lokális AI napló</span>
+          <h2 id="communicationSidebarTitle">Háttérkommunikáció</h2>
+        </div>
+        <button id="closeCommunicationSidebarButton" type="button" class="secondary" aria-label="Háttérkommunikáció bezárása">Bezárás</button>
+      </header>
+      <div class="communication-sidebar-content">
+        <section class="chat-trace-live">
+          <h3>Aktuális háttérfolyamat</h3>
+          <ol id="chatTraceSteps" class="chat-trace-steps">
+            <li>Várakozás kérdésre.</li>
+          </ol>
+        </section>
+        <section id="communicationSidebarDetails" class="communication-sidebar-details">
+          <p class="communication-empty">Egy AI-válasz mellett válaszd a „Háttérkommunikáció” gombot a részletes kérés és válasz megtekintéséhez.</p>
+        </section>
+      </div>
+    </section>
+  </aside>
+
+  <section id="flowView" class="flow-view panel" hidden>
+    <header class="flow-header">
+      <div>
+        <span class="flow-kicker">Rendszerműködés</span>
+        <h2 id="flowTitle">Nincs kiválasztott funkcionális útvonal</h2>
+        <p id="flowSummary">Válassz ki egy belépési pontot vagy csomópontot.</p>
+      </div>
+      <div class="flow-header-side">
+        <div class="flow-actions">
+          <button id="flowBackButton" type="button" class="secondary" disabled>← Vissza</button>
+          <button id="flowHomeButton" type="button" class="secondary">⌂ Kiindulópont</button>
+          <button id="refreshFlowButton" type="button" class="secondary">Újraépítés</button>
+          <button id="printFlowButton" type="button" class="secondary">Nyomtatás</button>
+          <button id="downloadMarkdownButton" type="button" class="secondary">Markdown</button>
+        </div>
+        <div class="flow-stats">
+        <span><strong id="flowStepCount">0</strong> lépés</span>
+        <span><strong id="flowFileCount">0</strong> fájl</span>
+        <span><strong id="flowConfidence">–</strong> bizonyosság</span>
+        </div>
+      </div>
+    </header>
+    <div class="flow-section-heading">
+      <div><h3>Végrehajtási útvonal</h3><p>A legvalószínűbb folyamat lépései. A kártyák a rendelkezésre álló szélességhez igazodva új sorban folytatódnak.</p></div>
+      <span id="flowBreadcrumb" class="flow-breadcrumb">Kiindulópont</span>
+    </div>
+    <div id="flowSteps" class="flow-steps"></div>
+    <details class="flow-branches" open>
+      <summary>Kapcsolati leágazások</summary>
+      <div class="flow-branch-toolbar">
+        <span>Megjelenített elemtípusok</span>
+        <div id="flowTypeFilters" class="flow-type-filters"></div>
+      </div>
+      <div id="flowTree" class="flow-tree" aria-label="Funkcionális útvonal elágazási fája"></div>
+    </details>
+    <section class="flow-report-grid">
+      <div>
+        <h3>Érintett állományok</h3>
+        <div id="flowFiles" class="flow-files"></div>
+      </div>
+      <div>
+        <h3>Megjegyzések és figyelmeztetések</h3>
+        <div id="flowWarnings" class="flow-warnings"></div>
+      </div>
+    </section>
+  </section>
+
+  <section id="graphWorkspace" class="workspace">
+    <div class="graph-panel panel">
+      <div class="graph-actions">
+        <label class="graph-control">
+          <span>Belépési pont</span>
+          <select id="entryPointSelect" aria-label="Belépési pont"><option value="">Automatikus</option></select>
+        </label>
+        <label class="graph-control depth-control">
+          <span>Kapcsolati mélység</span>
+          <select id="depthSelect" aria-label="Kapcsolati mélység">
+            <option value="1" selected>1 szint</option>
+            <option value="2">2 szint</option>
+            <option value="3">3 szint</option>
+            <option value="4">4 szint</option>
+            <option value="5">5 szint</option>
+            <option value="all">Teljes mélység</option>
+          </select>
+        </label>
+        <button id="focusBackButton" type="button" class="secondary" disabled>← Vissza</button>
+        <button id="focusHomeButton" type="button" class="secondary">⌂ Belépési pont</button>
+        <button id="resetButton" type="button" class="secondary">Teljes gráf</button>
+        <button id="fitButton" type="button" class="secondary">Nézet illesztése</button>
+        <button id="openGraphWindowButton" type="button" class="secondary">↗ Külön ablak</button>
+        <button id="fullscreenButton" type="button" class="secondary">⛶ Teljes képernyő</button>
+        <button id="threeDButton" type="button" class="secondary" aria-pressed="false">☄ 3D csillagrendszer</button>
+        <button id="resetRotationButton" type="button" class="secondary" hidden>Kamera visszaállítása</button>
+        <button id="reset3DPositionsButton" type="button" class="secondary" hidden>3D pozíciók visszaállítása</button>
+        <label id="threeDBackgroundControl" class="graph-control three-d-background-control" hidden>
+          <span>3D háttér</span>
+          <select id="threeDBackground" aria-label="3D háttér">
+            <option value="neutral" selected>Semleges tér</option>
+            <option value="grid">Rács</option>
+            <option value="stars">Csillagmező</option>
+            <option value="none">Nincs</option>
+          </select>
+        </label>
+        <button id="zoomInButton" type="button" class="secondary" aria-label="Nagyítás">＋</button>
+        <button id="zoomOutButton" type="button" class="secondary" aria-label="Kicsinyítés">－</button>
+        <label class="check"><input id="focusToggle" type="checkbox"> Csak közvetlen kapcsolatok</label>
+        <button id="setPathStartButton" type="button" class="secondary">Útvonal kezdete</button>
+        <button id="findPathButton" type="button" class="secondary">Útvonal a kijelöltig</button>
+        <button id="clearPathButton" type="button" class="secondary">Útvonal törlése</button>
+        <select id="pathDirection" aria-label="Útvonal iránya">
+          <option value="undirected">Mindkét irányban</option>
+          <option value="directed">Kapcsolati irány szerint</option>
+        </select>
+        <span id="focusBreadcrumb" class="focus-breadcrumb">Fókusz: belépési pont</span>
+        <span id="pathStatus" class="path-status">Nincs útvonal-kezdőpont</span>
+      </div>
+      <details id="filterDropdown" class="filter-dropdown">
+        <summary>Megjelenítési szűrők</summary>
+        <div class="filter-dropdown-content">
+          <fieldset>
+            <legend>Kapcsolatok</legend>
+            <div id="edgeTypeFilters" class="edge-type-filters" aria-label="Megjelenített kapcsolattípusok"></div>
+          </fieldset>
+          <fieldset>
+            <legend>Zajos elemek</legend>
+            <label class="edge-filter-check"><input id="showSelectors" type="checkbox"> CSS selectorok</label>
+            <label class="edge-filter-check"><input id="showDomNodes" type="checkbox"> HTML ID/class és DOM-elemek</label>
+            <label class="edge-filter-check"><input id="showAccessors" type="checkbox"> Getterek és setterek</label>
+          </fieldset>
+        </div>
+      </details>
+      <div class="legend" aria-label="Csomóponttípusok jelmagyarázata">
+        <span><i style="background:var(--file)"></i>Fájl</span>
+        <span><i style="background:var(--java)"></i>Java</span>
+        <span><i style="background:var(--javascript)"></i>JavaScript/TypeScript</span>
+        <span><i style="background:var(--html)"></i>HTML</span>
+        <span><i style="background:var(--css)"></i>CSS</span>
+        <span><i style="background:var(--endpoint)"></i>API endpoint</span>
+        <span><i style="background:var(--config)"></i>Konfiguráció</span>
+        <span><i style="background:var(--data)"></i>Adat/SQL</span>
+      </div>
+      <div id="edgeLegend" class="edge-legend" aria-label="Kapcsolattípusok jelmagyarázata"></div>
+      <p class="hint">Kezdetben csak a belépési pont látható. Dupla kattintással bővíthető az aktuális gráf a kiválasztott elem kapcsolataival · húzás: csomópont mozgatása · háttér húzása: pásztázás · egérgörgő: zoom · jobb kattintás: kapcsolati szűrőmenü · 3D módban szabadon forgatható a térbeli háló</p>
+      <div id="graphStage" class="graph-stage">
+      <svg id="graph" viewBox="0 0 1200 760" role="img" aria-label="Forráskód kapcsolati gráf"></svg>
+      <div id="graph3d" class="graph3d" hidden aria-label="3D forráskód gráf">
+        <div class="graph3d-help" aria-hidden="true">
+          <strong>3D csillagrendszer</strong>
+          <span>Bal húzás: forgatás</span>
+          <span>Görgő: közelítés / távolítás</span>
+          <span>Középső húzás: pásztázás</span>
+          <span>Shift + bal húzás csomóponton: mozgatás a nézeti síkban</span>
+          <span>Shift + Alt + bal húzás: mozgatás mélységben</span>
+          <span>Shift + görgő csomóponton: finom mélységállítás</span>
+          <span>Dupla kattintás: kapcsolatok kibontása</span>
+        </div>
+      </div>
+      </div>
+      <div id="contextMenu" class="context-menu" hidden>
+        <div class="context-menu-header">
+          <strong id="contextMenuTitle">Kapcsolatok</strong>
+          <button id="contextMenuClose" type="button" class="secondary icon-button" aria-label="Menü bezárása">×</button>
+        </div>
+        <div class="context-menu-actions">
+          <button id="contextSelectAll" type="button" class="secondary">Összes</button>
+          <button id="contextSelectNone" type="button" class="secondary">Egyik sem</button>
+          <button id="contextApply" type="button">Kijelöltek megjelenítése</button>
+        </div>
+        <div id="contextMenuList" class="context-menu-list"></div>
+      </div>
+    </div>
+    <aside id="detailsPanel" class="details panel">
+      <div class="details-header"><h2 id="detailName">Nincs kiválasztott elem</h2><button id="detailsToggleButton" type="button" class="secondary icon-button" aria-label="Részletek bezárása" title="Részletek bezárása">×</button></div>
+      <dl>
+        <dt>Típus</dt><dd id="detailType">–</dd>
+        <dt>Fájl</dt><dd id="detailPath">–</dd>
+        <dt>Sor</dt><dd id="detailLine">–</dd>
+      </dl>
+      <h3>Elhelyezkedés és metaadatok</h3>
+      <div id="metadataList" class="metadata-list"></div>
+      <h3>Kapcsolatok</h3>
+      <div id="connectionList" class="connection-list"></div>
+      <h3>Elemzési figyelmeztetések</h3>
+      <div id="warningList" class="warnings">Nincs elemzés.</div>
+    </aside>
+    <button id="detailsOpenButton" type="button" class="details-open-button secondary" hidden>Részletek ›</button>
+  </section>
+</main>
+
+<dialog id="analysisDialog" class="analysis-dialog" aria-labelledby="analysisDialogTitle">
+  <div class="analysis-dialog-content">
+    <div class="analysis-visual" aria-hidden="true">
+      <span class="analysis-orbit orbit-one"></span>
+      <span class="analysis-orbit orbit-two"></span>
+      <span class="analysis-core"></span>
+    </div>
+    <div class="analysis-copy">
+      <span class="analysis-kicker">Forrásgráf építése</span>
+      <h2 id="analysisDialogTitle">A projekt elemzése folyamatban</h2>
+      <p id="analysisFileName" class="analysis-file-name"></p>
+      <div class="analysis-progress" role="progressbar" aria-label="Elemzés folyamatban">
+        <span id="analysisProgressBar"></span>
+      </div>
+      <div class="analysis-stage-row">
+        <span id="analysisStage">Projekt kicsomagolása…</span>
+        <span id="analysisElapsed">0 mp</span>
+      </div>
+      <div class="analysis-steps" aria-hidden="true">
+        <i class="active"></i><i></i><i></i><i></i>
+      </div>
+      <p class="analysis-note">Nagyobb projektek vizsgálata néhány percig is eltarthat. A forráskód csak az elemzés idejére kerül feldolgozásra.</p>
+      <div class="analysis-actions">
+        <button id="cancelAnalysisButton" type="button" class="secondary">Elemzés megszakítása</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+<dialog id="flowBuildDialog" class="analysis-dialog" aria-labelledby="flowBuildDialogTitle">
+  <div class="analysis-dialog-content compact-process-dialog">
+    <div class="analysis-visual" aria-hidden="true">
+      <span class="analysis-orbit orbit-one"></span>
+      <span class="analysis-orbit orbit-two"></span>
+      <span class="analysis-core"></span>
+    </div>
+    <div class="analysis-copy">
+      <span class="analysis-kicker">Folyamatmodell építése</span>
+      <h2 id="flowBuildDialogTitle">A gráf és az útvonal összeállítása</h2>
+      <p id="flowBuildStage" class="analysis-file-name">Kapcsolatok feldolgozása…</p>
+      <div class="analysis-progress" role="progressbar" aria-label="Folyamatmodell összeállítása">
+        <span id="flowBuildProgress"></span>
+      </div>
+      <p class="analysis-note">A megjelenítés a már helyben elemzett forrásgráfból készül.</p>
+    </div>
+  </div>
+</dialog>
+
+<script type="module" src="/js/app.js?v=3.9"></script>
+</body>
+</html>
