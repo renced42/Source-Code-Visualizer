@@ -1,4 +1,4 @@
-# Source Graph Explorer
+# Source Code Visualizer
 
 Adatbázis nélküli Spring Boot prototípus Java webalkalmazások teljes forráskódjának kapcsolati feltérképezésére.
 
@@ -164,7 +164,7 @@ A végrehajtási útvonal minden forrásfájlhoz köthető kártyáján `</>` ik
 - A **3D pozíciók visszaállítása** gomb újraépíti az automatikus térbeli elrendezést.
 
 
-## 3.0 – Teljesen helyi AI Chat
+## v3.0 – Teljesen helyi AI Chat
 
 A program új **Helyi AI Chat** nézetet tartalmaz. A chat az aktív elemzési munkamenet gráfjából és forráskódjából állít össze célzott kontextust, majd azt kizárólag a helyi Ollama szolgáltatásnak küldi.
 
@@ -196,7 +196,7 @@ Használat:
 
 A válaszok mellett a felhasznált fájl- és sorszámhivatkozások kattinthatók, a beszélgetés Markdownként exportálható.
 
-## 3.2 – Chat időbélyegek és háttérkommunikációs sidebar
+## v3.2 – Chat időbélyegek és háttérkommunikációs sidebar
 
 - A felhasználói kérdések mellett megjelenik a kérdés pontos helyi ideje.
 - Az AI-válaszok mellett megjelenik a válasz pontos helyi ideje.
@@ -205,7 +205,7 @@ A válaszok mellett a felhasznált fájl- és sorszámhivatkozások kattintható
 - A sidebar a felső „Háttérkommunikáció” gombbal, illetve az egyes válaszok saját gombjával nyitható meg.
 
 
-## 3.3 – Lokális hibrid RAG és memóriaalapú vektorindex
+## v3.3 – Lokális hibrid RAG és memóriaalapú vektorindex
 
 - Új, kézzel indítható **RAG index felépítése** művelet a Helyi AI Chat nézetben.
 - Embeddingmodell: `qwen3-embedding:0.6b`, kizárólag a helyi Ollama `/api/embed` végpontján.
@@ -224,14 +224,14 @@ app.ai.ollama.embedding-model=qwen3-embedding:0.6b
 Az index az elemzési munkamenethez kötött. Új projekt elemzésekor újra fel kell építeni.
 
 
-## 3.6 – RAG index előrehaladás és hátralévőidő-becslés
+## v3.4 – RAG index előrehaladás és hátralévőidő-becslés
 
 - Az indexelés közben megjelenik a kész dokumentumok aránya és százaléka.
 - Látható az eltelt idő, az átlagos feldolgozási sebesség és a becsült hátralévő idő.
 - A becslés a már elkészült dokumentumok átlagsebességéből számolódik, ezért az első néhány batch után stabilizálódik.
 - Az embedding batchméret továbbra is 4, mert a kisebb érték több HTTP- és modellhívási többletet okozhat.
 
-## 3.5 – Megszakítható RAG-indexelés és kisebb batch
+## v3.6 – Megszakítható RAG-indexelés és kisebb batch
 
 - Az embedding batch alapértéke `4`, így CPU-s gépen hamarabb frissül az előrehaladás és kisebb egy-egy Ollama-kérés terhelése.
 - A batchméret konfigurálható:
@@ -246,11 +246,11 @@ app.ai.ollama.embedding-batch-size=4
 - A részlegesen elkészült index nem kerül publikálásra. Korábban sikeresen elkészített index újraépítés megszakításakor változatlanul megmarad.
 
 
-## v3.8 – AI válasz megszakítása
+## 3.8 – AI válasz megszakítása
 
 A helyi AI Chat aktív válaszgenerálás közben „Válasz leállítása” gombot jelenít meg. A leállítás megszakítja a böngésző kérését és a backendben futó helyi Ollama HTTP-hívást is.
 
-## Tartós és inkrementális RAG-index (v3.9)
+## 3.9 Tartós és inkrementális RAG-index 
 
 A RAG embeddingek nem csak memóriában élnek. A program a normalizált vektorokat tartalomhash alapján helyi gyorsítótárba menti:
 
