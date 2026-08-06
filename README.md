@@ -22,7 +22,7 @@ Követelmény: Java 21 és Maven.
 mvn spring-boot:run
 ```
 
-Ezután: `http://localhost:8080`
+Ezután: `http://localhost:9090`
 
 ## Következő fejlesztési lépések
 
