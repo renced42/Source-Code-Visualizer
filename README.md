@@ -246,11 +246,11 @@ app.ai.ollama.embedding-batch-size=4
 - A részlegesen elkészült index nem kerül publikálásra. Korábban sikeresen elkészített index újraépítés megszakításakor változatlanul megmarad.
 
 
-## 3.8 – AI válasz megszakítása
+## v3.8 – AI válasz megszakítása
 
 A helyi AI Chat aktív válaszgenerálás közben „Válasz leállítása” gombot jelenít meg. A leállítás megszakítja a böngésző kérését és a backendben futó helyi Ollama HTTP-hívást is.
 
-## 3.9 Tartós és inkrementális RAG-index 
+## v3.9 Tartós és inkrementális RAG-index 
 
 A RAG embeddingek nem csak memóriában élnek. A program a normalizált vektorokat tartalomhash alapján helyi gyorsítótárba menti:
 
